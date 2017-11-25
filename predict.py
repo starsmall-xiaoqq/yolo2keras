@@ -11,7 +11,7 @@ from frontend import YOLO
 import json
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]=""
+#os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3"
 
 argparser = argparse.ArgumentParser(
     description='Train and validate YOLO_v2 model on any dataset')
@@ -39,6 +39,8 @@ def _main_(args):
 
     with open(config_path) as config_buffer:    
         config = json.load(config_buffer)
+    
+    os.environ["CUDA_VISIBLE_DEVICES"]=config['env']['gpu']
 
     ###############################
     #   Make the model 
@@ -54,7 +56,7 @@ def _main_(args):
     #   Load trained weights
     ###############################    
 
-    print weights_path
+    print (weights_path)
     yolo.load_weights(weights_path)
 
     ###############################
@@ -90,7 +92,7 @@ def _main_(args):
         boxes = yolo.predict(image)
         image = draw_boxes(image, boxes, config['model']['labels'])
 
-        print len(boxes), 'boxes are found'
+        print (len(boxes), 'boxes are found')
 
         cv2.imwrite(image_path[:-4] + '_detected' + image_path[-4:], image)
 

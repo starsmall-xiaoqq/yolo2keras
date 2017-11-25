@@ -8,7 +8,7 @@ from keras.utils import Sequence
 import xml.etree.ElementTree as ET
 from utils import BoundBox, normalize, bbox_iou
 
-def parse_annotation(ann_dir, img_dir, labels=[], ext='.jpg'):
+def parse_annotation(ann_dir, img_dir, labels=[], ext='', prefix=""):
     all_imgs = []
     seen_labels = {}
     
@@ -19,7 +19,8 @@ def parse_annotation(ann_dir, img_dir, labels=[], ext='.jpg'):
         
         for elem in tree.iter():
             if 'filename' in elem.tag:
-                img['filename'] = img_dir + elem.text + ext
+                img['filename'] = img_dir  + prefix+  elem.text + ext 
+                print("########### image --- {}".format(img['filename']))
             if 'width' in elem.tag:
                 img['width'] = int(elem.text)
             if 'height' in elem.tag:
@@ -253,6 +254,8 @@ class BatchGenerator(Sequence):
     def aug_image(self, train_instance, jitter):
         #from IPython.core.debugger import Pdb; Pdb().set_trace()
         image_name = train_instance['filename']
+        #print("----------------- image:------  {}--".format(image_name))
+
         image = cv2.imread(image_name)
         
         h, w, c = image.shape

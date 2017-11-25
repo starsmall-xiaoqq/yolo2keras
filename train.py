@@ -8,7 +8,7 @@ from frontend import YOLO
 import json
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3" #4 GPU
+#os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3" #4 GPU
 
 argparser = argparse.ArgumentParser(
     description='Train and validate YOLO_v2 model on any dataset')
@@ -25,6 +25,8 @@ def _main_(args):
     with open(config_path) as config_buffer:    
         config = json.loads(config_buffer.read())
 
+    os.environ["CUDA_VISIBLE_DEVICES"]=config['env']['gpu']    
+    #print("{}").format(config)
     ###############################
     #   Parse the annotations 
     ###############################
@@ -32,13 +34,13 @@ def _main_(args):
     # parse annotations of the training set
     train_imgs, train_labels = parse_annotation(config['train']['train_annot_folder'], 
                                                 config['train']['train_image_folder'], 
-                                                config['model']['labels'], ".jpg")
-
+                                                config['model']['labels'], config['train']['image_ext_name'], config['train']['image_prefix'])
+   
     # parse annotations of the validation set, if any, otherwise split the training set
     if os.path.exists(config['valid']['valid_annot_folder']):
         valid_imgs, valid_labels = parse_annotation(config['valid']['valid_annot_folder'], 
                                                     config['valid']['valid_image_folder'], 
-                                                    config['model']['labels'], ".jpg")
+                                                    config['model']['labels'], config['train']['image_ext_name'], config['train']['image_prefix'])
     else:
         train_valid_split = int(0.8*len(train_imgs))
         np.random.shuffle(train_imgs)

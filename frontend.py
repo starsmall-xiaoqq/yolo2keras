@@ -321,13 +321,13 @@ class YOLO(object):
         for c in range(self.nb_class):
             sorted_indices = list(reversed(np.argsort([box.classes[c] for box in boxes])))
 
-            for i in xrange(len(sorted_indices)):
+            for i in range(len(sorted_indices)):
                 index_i = sorted_indices[i]
                 
                 if boxes[index_i].classes[c] == 0: 
                     continue
                 else:
-                    for j in xrange(i+1, len(sorted_indices)):
+                    for j in range(i+1, len(sorted_indices)):
                         index_j = sorted_indices[j]
                         
                         if self.bbox_iou(boxes[index_i], boxes[index_j]) >= nms_threshold:
@@ -423,8 +423,10 @@ class YOLO(object):
                                      save_best_only=True, 
                                      mode='min', 
                                      period=1)
-        tb_counter  = len([log for log in os.listdir(os.path.expanduser('~/logs/')) if 'yolo' in log]) + 1
-        tensorboard = TensorBoard(log_dir=os.path.expanduser('~/logs/') + 'yolo' + '_' + str(tb_counter), 
+        logs_path = os.getcwd()+"/logs/"
+        if not os.path.exists(logs_path): logs_path = os.path.expanduser('~/logs/')
+        tb_counter  = len([log for log in os.listdir(logs_path) if 'yolo' in log]) + 1
+        tensorboard = TensorBoard(log_dir=logs_path + 'yolo' + '_' + str(tb_counter), 
                                   histogram_freq=0, 
                                   #write_batch_performance=True,
                                   write_graph=True, 

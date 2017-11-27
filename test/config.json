@@ -1,21 +1,20 @@
 {
     "env": {
-	"gpu": "0,1,2,3"
+    "gpu": "0,1,2,3"
     },
-
     "model" : {
         "architecture":         "Full Yolo",
         "input_size":           416,
         "anchors":              [0.57273, 0.677385, 1.87446, 2.06253, 3.33843, 5.47434, 7.88282, 3.52778, 9.77052, 9.16828],
         "max_box_per_image":    3,        
-        "labels":               ["manhole"]
+        "labels":               ["RBC"]
     },
 
     "train": {
-        "train_image_folder":   "manhole/PNGImages/",
-        "train_annot_folder":   "manhole/Annotations/",     
-	"image_ext_name": "",
-	"image_prefix": "",
+        "train_image_folder":   "test/JPEGImages/",
+        "train_annot_folder":   "test/Annotations/",     
+        "image_ext_name": "",
+        "image_prefix": "",
           
         "train_times":          1,
         "pretrained_weights":   "",
@@ -29,7 +28,7 @@
         "coord_scale":          1.0,
         "class_scale":          1.0,
 
-        "saved_weights_name":   "manhole/full_yolo_manhole.h5",
+        "saved_weights_name":   "test/full_yolo_test.h5",
         "debug":               0
     },
 

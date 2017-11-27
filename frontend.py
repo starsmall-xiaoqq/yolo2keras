@@ -12,13 +12,16 @@ from preprocessing import BatchGenerator
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from utils import BoundBox
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature
+from keras.utils import multi_gpu_model
+
 
 class YOLO(object):
     def __init__(self, architecture,
                        input_size, 
                        labels, 
                        max_box_per_image,
-                       anchors):
+                       anchors, 
+                       gpus = 1):
 
         self.input_size = input_size
         
@@ -27,61 +30,68 @@ class YOLO(object):
         self.nb_box   = 5
         self.class_wt = np.ones(self.nb_class, dtype='float32')
         self.anchors  = anchors
-
+        self.gpus = gpus
         self.max_box_per_image = max_box_per_image
 
         ##########################
         # Make the model
         ##########################
+        with tf.device('/cpu:0'):
+      
+            # make the feature extractor layers
+            input_image     = Input(shape=(self.input_size, self.input_size, 3))
+            self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image , 4))  
 
-        # make the feature extractor layers
-        input_image     = Input(shape=(self.input_size, self.input_size, 3))
-        self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image , 4))  
+            if architecture == 'Inception3':
+                self.feature_extractor = Inception3Feature(self.input_size)  
+            elif architecture == 'SqueezeNet':
+                self.feature_extractor = SqueezeNetFeature(self.input_size)        
+            elif architecture == 'MobileNet':
+                self.feature_extractor = MobileNetFeature(self.input_size)
+            elif architecture == 'Full Yolo':
+                self.feature_extractor = FullYoloFeature(self.input_size)
+            elif architecture == 'Tiny Yolo':
+                self.feature_extractor = TinyYoloFeature(self.input_size)
+            elif architecture == 'VGG16':
+                self.feature_extractor = VGG16Feature(self.input_size)
+            elif architecture == 'ResNet50':
+                self.feature_extractor = VGG16Feature(self.input_size)
+            else:
+                raise Exception('Architecture not supported! Only support Full Yolo, \
+                    Tiny Yolo, MobileNet, SqueezeNet, VGG16, ResNet50, and Inception3 at the moment!')
 
-        if architecture == 'Inception3':
-            self.feature_extractor = Inception3Feature(self.input_size)  
-        elif architecture == 'SqueezeNet':
-            self.feature_extractor = SqueezeNetFeature(self.input_size)        
-        elif architecture == 'MobileNet':
-            self.feature_extractor = MobileNetFeature(self.input_size)
-        elif architecture == 'Full Yolo':
-            self.feature_extractor = FullYoloFeature(self.input_size)
-        elif architecture == 'Tiny Yolo':
-            self.feature_extractor = TinyYoloFeature(self.input_size)
-        elif architecture == 'VGG16':
-            self.feature_extractor = VGG16Feature(self.input_size)
-        elif architecture == 'ResNet50':
-            self.feature_extractor = VGG16Feature(self.input_size)
+            print (self.feature_extractor.get_output_shape() )   
+            self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()        
+            features = self.feature_extractor.extract(input_image)            
+
+            # make the object detection layer
+            output = Conv2D(self.nb_box * (4 + 1 + self.nb_class), 
+                            (1,1), strides=(1,1), 
+                            padding='same', 
+                            name='conv_23', 
+                            kernel_initializer='lecun_normal')(features)
+            output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
+            output = Lambda(lambda args: args[0])([output, self.true_boxes])
+
+            self.orgmodel = Model([input_image, self.true_boxes], output)
+
+            # initialize the weights of the detection layer
+            layer = self.orgmodel.layers[-4]
+            weights = layer.get_weights()
+
+            new_kernel = np.random.normal(size=weights[0].shape)/(self.grid_h*self.grid_w)
+            new_bias   = np.random.normal(size=weights[1].shape)/(self.grid_h*self.grid_w)
+
+            layer.set_weights([new_kernel, new_bias])
+            
+            # print a summary of the whole model
+            self.orgmodel.summary()
+
+        if (gpus >1) : 
+            self.model = multi_gpu_model(self.orgmodel, gpus= self.gpus)
         else:
-            raise Exception('Architecture not supported! Only support Full Yolo, Tiny Yolo, MobileNet, SqueezeNet, VGG16, ResNet50, and Inception3 at the moment!')
-
-        print (self.feature_extractor.get_output_shape() )   
-        self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()        
-        features = self.feature_extractor.extract(input_image)            
-
-        # make the object detection layer
-        output = Conv2D(self.nb_box * (4 + 1 + self.nb_class), 
-                        (1,1), strides=(1,1), 
-                        padding='same', 
-                        name='conv_23', 
-                        kernel_initializer='lecun_normal')(features)
-        output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
-        output = Lambda(lambda args: args[0])([output, self.true_boxes])
-
-        self.model = Model([input_image, self.true_boxes], output)
-        
-        # initialize the weights of the detection layer
-        layer = self.model.layers[-4]
-        weights = layer.get_weights()
-
-        new_kernel = np.random.normal(size=weights[0].shape)/(self.grid_h*self.grid_w)
-        new_bias   = np.random.normal(size=weights[1].shape)/(self.grid_h*self.grid_w)
-
-        layer.set_weights([new_kernel, new_bias])
-
-        # print a summary of the whole model
-        self.model.summary()
-
+            self.model = self.orgmodel
+            
     def custom_loss(self, y_true, y_pred):
         mask_shape = tf.shape(y_true)[:4]
         
@@ -379,7 +389,7 @@ class YOLO(object):
         ############################################
         # Compile the model
         ############################################
-
+        
         optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
         self.model.compile(loss=self.custom_loss, optimizer=optimizer)
 
@@ -417,12 +427,14 @@ class YOLO(object):
                            patience=3, 
                            mode='min', 
                            verbose=1)
-        checkpoint = ModelCheckpoint(saved_weights_name, 
+        """
+        checkpoint = ModelCheckpoint(saved_weights_name,
                                      monitor='val_loss', 
-                                     verbose=1, 
+                                     verbose=1,
                                      save_best_only=True, 
                                      mode='min', 
                                      period=1)
+        """
         logs_path = os.getcwd()+"/logs/"
         if not os.path.exists(logs_path): logs_path = os.path.expanduser('~/logs/')
         tb_counter  = len([log for log in os.listdir(logs_path) if 'yolo' in log]) + 1
@@ -438,11 +450,13 @@ class YOLO(object):
         #from IPython.core.debugger import Pdb; Pdb().set_trace()
         
         self.model.fit_generator(generator        = train_batch, 
-                                 steps_per_epoch  = len(train_batch) * train_times, 
-                                 epochs           = nb_epoch, 
+                                 steps_per_epoch  = len(train_batch) * train_times //self.gpus, 
+                                 epochs           = nb_epoch * self.gpus, 
                                  verbose          = 1,
                                  validation_data  = valid_batch,
-                                 validation_steps = len(valid_batch) * valid_times,
-                                 callbacks        = [early_stop, checkpoint, tensorboard], 
+                                 validation_steps = len(valid_batch) * valid_times // self.gpus,
+                                 callbacks        = [early_stop, tensorboard], #[early_stop, checkpoint, tensorboard], 
                                  workers          = 3,
                                  max_queue_size   = 8)
+        
+        self.orgmodel.save_weights(saved_weights_name)

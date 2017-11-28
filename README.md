@@ -1,6 +1,6 @@
 # YOLOv2 in Keras and Applications
 
-This repo contains the implementation of YOLOv2 in Keras with Tensorflow backend. It supports training YOLOv2 network with various backends such as MobileNet and InceptionV3. Links to demo applications are shown below. Head to https://experiencor.github.io/yolo_demo/demo.html for a Raccoon Detector demo run entirely in brower with DeepLearn.js and MobileNet backend (it somehow breaks in Window). Source code of this demo is located at https://git.io/vF7vG.
+This repo contains the implementation of YOLOv2 in Keras with Tensorflow backend. It supports training YOLOv2 network with various backends such as MobileNet and InceptionV3.
 
 ## Todo list:
 - [x] Warmup training
@@ -12,7 +12,7 @@ This repo contains the implementation of YOLOv2 in Keras with Tensorflow backend
 - [x] InceptionV3 backend
 - [x] VGG16 backend
 - [x] ResNet50 backend
-- [ ] Multiple-GPU training
+- [x] Multiple-GPU training
 - [ ] Multiscale training
 
 ## Some example applications (click for videos):
@@ -63,7 +63,11 @@ The configuration file is a json file, which looks like this:
 
 ```python
 {
-    "model" : {
+   "env": {
+       "gpu"= '0,1'
+    },
+
+   "model" : {
         "architecture":         "Full Yolo",    # "Tiny Yolo" or "Full Yolo" or "MobileNet" or "SqueezeNet" or "Inception3"
         "input_size":           416,
         "anchors":              [0.57273, 0.677385, 1.87446, 2.06253, 3.33843, 5.47434, 7.88282, 3.52778, 9.77052, 9.16828],

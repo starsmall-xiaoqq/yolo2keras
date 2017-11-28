@@ -26,6 +26,8 @@ def _main_(args):
         config = json.loads(config_buffer.read())
 
     os.environ["CUDA_VISIBLE_DEVICES"]=config['env']['gpu']    
+    gpus = max(1, len(config['env']['gpu'].split(",")))
+
     #print("{}").format(config)
     ###############################
     #   Parse the annotations 
@@ -67,7 +69,8 @@ def _main_(args):
                 input_size          = config['model']['input_size'], 
                 labels              = config['model']['labels'], 
                 max_box_per_image   = config['model']['max_box_per_image'],
-                anchors             = config['model']['anchors'])
+                anchors             = config['model']['anchors']
+                gpus                = gpus)
 
     ###############################
     #   Load the pretrained weights (if any) 

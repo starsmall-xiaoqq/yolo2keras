@@ -64,7 +64,7 @@ The configuration file is a json file, which looks like this:
 ```python
 {
    "env": {
-       "gpu"= '0,1'
+       "gpu"= "0,1"
     },
 
    "model" : {
@@ -129,12 +129,7 @@ By the end of this process, the code will write the weights of the best model to
 
 It carries out detection on the image and write the image with detected bounding boxes to the same folder.
 
-## Usage for jupyter notebook
 
-Refer to the notebook (https://github.com/experiencor/basic-yolo-keras/blob/master/Yolo%20Step-by-Step.ipynb) for a complete walk-through implementation of YOLOv2 from scratch (training, testing, and scoring).
+## Original 
 
-## Evaluation of the current implementation:
-
-| Train        | Test          | mAP (with this implementation) | mAP (on released weights) |
-| -------------|:--------------|:------------------------:|:-------------------------:|
-| COCO train   | COCO val      | 28.6 |    42.1 |
+Refer to (https://github.com/experiencor/basic-yolo-keras) 

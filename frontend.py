@@ -13,7 +13,39 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from utils import BoundBox
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature
 from keras.utils import multi_gpu_model
+#from sklearn.metrics import roc_auc_score #lxx
+from keras.callbacks import Callback
 
+class Histories(Callback):
+    def __init__(self, test_data=None):
+        self.test_data = test_data
+        
+    def on_train_begin(self, logs={}):
+        return
+
+    def on_train_end(self, logs={}):
+        return
+    
+    def on_epoch_begin(self, epoch, logs={}):
+        return
+
+    def on_epoch_end(self, epoch, logs={}):
+        
+        print(' \n ### loss: {}, acc: {}, val_loss: {}, val_acc: {} ### \n, '.format(logs.get('loss'), 
+                  logs.get('acc'), logs.get('val_loss'), logs.get('val_acc')))
+        
+        if self.test_data is not None :
+            x, y = self.test_data
+            loss, acc = self.model.evaluate(x, y, verbose=0)
+            print('\nTesting loss: {}, acc: {}\n'.format(loss, acc))
+        
+        return
+
+    def on_batch_begin(self, batch, logs={}):
+        return
+
+    def on_batch_end(self, batch, logs={}):
+        return
 
 class YOLO(object):
     def __init__(self, architecture,
@@ -40,7 +72,7 @@ class YOLO(object):
       
             # make the feature extractor layers
             input_image     = Input(shape=(self.input_size, self.input_size, 3))
-            self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image , 4))  
+            self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image , 4))
 
             if architecture == 'Inception3':
                 self.feature_extractor = Inception3Feature(self.input_size)  
@@ -60,13 +92,13 @@ class YOLO(object):
                 raise Exception('Architecture not supported! Only support Full Yolo, \
                     Tiny Yolo, MobileNet, SqueezeNet, VGG16, ResNet50, and Inception3 at the moment!')
 
-            print (self.feature_extractor.get_output_shape() )   
+            print (self.feature_extractor.get_output_shape() ) 
             self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()        
             features = self.feature_extractor.extract(input_image)            
 
             # make the object detection layer
-            output = Conv2D(self.nb_box * (4 + 1 + self.nb_class), 
-                            (1,1), strides=(1,1), 
+            output = Conv2D(self.nb_box * (4 + 1 + self.nb_class), (1,1), 
+                            strides=(1,1), 
                             padding='same', 
                             name='conv_23', 
                             kernel_initializer='lecun_normal')(features)
@@ -360,7 +392,7 @@ class YOLO(object):
         e_x = np.exp(x)
         
         return e_x / e_x.sum(axis, keepdims=True)
-
+    
     def train(self, train_imgs,     # the list of images to train the model
                     valid_imgs,     # the list of images used to validate the model
                     train_times,    # the number of time to repeat the training set, often used for small datasets
@@ -391,7 +423,7 @@ class YOLO(object):
         ############################################
         
         optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-        self.model.compile(loss=self.custom_loss, optimizer=optimizer)
+        self.model.compile(loss=self.custom_loss, optimizer=optimizer, metrics=['accuracy'])
 
         ############################################
         # Make train and validation generators
@@ -435,6 +467,9 @@ class YOLO(object):
                                      mode='min', 
                                      period=1)
         """
+        # prepare loss and acc cauculation callback
+        histories = Histories()
+
         logs_path = os.getcwd()+"/logs/"
         if not os.path.exists(logs_path): logs_path = os.path.expanduser('~/logs/')
         tb_counter  = len([log for log in os.listdir(logs_path) if 'yolo' in log]) + 1
@@ -449,14 +484,16 @@ class YOLO(object):
         ############################################        
         #from IPython.core.debugger import Pdb; Pdb().set_trace()
         
-        self.model.fit_generator(generator        = train_batch, 
+        history= self.model.fit_generator(generator        = train_batch, 
                                  steps_per_epoch  = len(train_batch) * train_times //self.gpus, 
                                  epochs           = nb_epoch * self.gpus, 
                                  verbose          = 1,
                                  validation_data  = valid_batch,
                                  validation_steps = len(valid_batch) * valid_times // self.gpus,
-                                 callbacks        = [early_stop, tensorboard], #[early_stop, checkpoint, tensorboard], 
+                                 callbacks        = [early_stop, histories], #[early_stop, checkpoint, tensorboard], 
                                  workers          = 3,
-                                 max_queue_size   = 8)
+                                 max_queue_size   = 8 )
+        
+        print('Loss: ', history)
         
         self.orgmodel.save_weights(saved_weights_name)
